@@ -107,18 +107,6 @@ function BossAI:RewardBossKill(state, deathEventData, teamId)
       BossSpawner[team .. "Zone1"].disable()
       BossSpawner[team .. "Zone2"].disable()
     end
-
-    PlayerResource:GetPlayerIDsForTeam(teamId):each(function (playerId)
-      local hero = PlayerResource:GetSelectedHeroEntity(playerId)
-
-      if hero then
-        if self.hasFarmingCore[team] and not hero.hasFarmingCore then
-          hero:AddItemByName("item_farming_core")
-          hero.hasFarmingCore = true
-        end
-      end
-    end)
-
   elseif tier == 2 then
     -- NGP:GiveItemToTeam(BossItems["item_upgrade_core_2"], team)
     -- NGP:GiveItemToTeam(BossItems["item_upgrade_core"], team)
@@ -133,9 +121,11 @@ function BossAI:RewardBossKill(state, deathEventData, teamId)
     self:GiveItemToWholeTeam("item_upgrade_core_4", teamId)
   elseif tier == 5 then
 
+    PointsManager:AddPoints(teamId)
     -- NGP:GiveItemToTeam(BossItems["item_upgrade_core_4"], team)
     self:GiveItemToWholeTeam("item_upgrade_core_4", teamId)
   elseif tier == 6 then
+    PointsManager:AddPoints(teamId)
     -- NGP:GiveItemToTeam(BossItems["item_upgrade_core_4"], team)
     self:GiveItemToWholeTeam("item_upgrade_core_4", teamId)
   end

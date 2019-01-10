@@ -26,11 +26,11 @@
 
     // Time
     //-------------------------------------------------------------------------------------------------------------
-    "AbilityCooldown"       "24 20 16 12 10 7" // tiny talent gives -7 second CD, so at max with the talent you can be perma-tree
+    "AbilityCooldown"       "27 22 17 12 10 7" // tiny talent gives -7 second CD, so at max with the talent you can be perma-tree
 
     // Cost
     //-------------------------------------------------------------------------------------------------------------
-    "AbilityManaCost"       "20 30 40 50 110 170"
+    "AbilityManaCost"       "50 50 50 50 110 170"
 
     // Stats
     //-------------------------------------------------------------------------------------------------------------

@@ -38,6 +38,7 @@ function HeroSelection:Init ()
   self.isARDM = GetMapName() == "ardm"
   self.is10v10 = GetMapName() == "10v10"
   self.isRanked = GetMapName() == "ranked"
+  self.isUnranked = GetMapName() == "unranked"
   self.spawnedHeroes = {}
   self.spawnedPlayers = {}
   self.attemptedSpawnPlayers = {}
@@ -53,6 +54,9 @@ function HeroSelection:Init ()
   if self.is10v10 then
     herolistFile = 'scripts/npc/herolist_10v10.txt'
   end
+  if self.isRanked or self.isUnranked then
+    self.isBanning = true
+  end
 
   local allheroes = LoadKeyValues('scripts/npc/npc_heroes.txt')
   local heroAbilities = {}
@@ -63,11 +67,9 @@ function HeroSelection:Init ()
       local data = LoadKeyValues('scripts/npc/units/' .. key .. '.txt')
       if data and data[key] then
         allheroes[key] = data[key]
-        DebugPrintTable(allheroes[key])
       end
     end
     if value == 1 then
-      DebugPrint('Hero thingy fuck whatever ' .. allheroes[key].AttributePrimary)
       if not heroAbilities[allheroes[key].AttributePrimary] then
         heroAbilities[allheroes[key].AttributePrimary] = {}
       end
@@ -176,7 +178,7 @@ function HeroSelection:StartSelection ()
 
   if self.isCM then
     HeroSelection:CMManager(nil)
-  elseif self.isRanked then
+  elseif self.isBanning then
     HeroSelection:RankedManager(nil)
   else
     HeroSelection:APTimer(AP_GAME_TIME, "ALL PICK")
@@ -196,6 +198,10 @@ function HeroSelection:StartSelection ()
     end
     if SPECIAL_ARCANAS[steamid] then
       special_arcanas[playerID] = { SteamId = steamid, PlayerId = playerID, Arcanas = SPECIAL_ARCANAS[steamid]}
+      table.insert(special_arcanas[playerID].Arcanas, 'RockElectrician')
+      if SPECIAL_BOTTLES[steamid] then
+        table.insert(special_arcanas[playerID].Arcanas, 'PepsiSohei')
+      end
     end
   end
 
@@ -253,21 +259,33 @@ function HeroSelection:RankedManager (event)
   end
   if rankedpickorder.phase == 'bans' then
     -- end banning phase
+    if not event.isTimeout then
+      -- ban hero
+      if event.hero == 'random' or rankedpickorder.banChoices[event.PlayerID] then
+        -- bad ban
+        save()
+        return
+      end
+      -- good ban
+      rankedpickorder.banChoices[event.PlayerID] = event.hero
+      save()
+
+      local banCount = 0
+      for _,a in pairs(rankedpickorder.banChoices) do
+        banCount = banCount + 1
+      end
+      if PlayerResource:GetAllTeamPlayerIDs():length() == banCount then
+        event.isTimeout = true
+      else
+        return
+      end
+    end
     if event.isTimeout then
       rankedpickorder.phase = 'picking'
       rankedpickorder.currentOrder = 1
       self:ChooseBans()
       save()
       return self:RankedTimer(RANKED_PICK_TIME, "PICK")
-    else
-      -- ban hero
-      if event.hero == 'random' or rankedpickorder.banChoices[event.PlayerID] then
-        save()
-        return
-      end
-      rankedpickorder.banChoices[event.PlayerID] = event.hero
-      save()
-      return
     end
   end
   if rankedpickorder.phase == 'picking' then
@@ -279,7 +297,7 @@ function HeroSelection:RankedManager (event)
     local choice = event.hero
     if event.isTimeout then
       DebugPrint('Timeout hero pick, randoming...')
-      choice = 'random'
+      choice = 'forcerandom'
       DebugPrint('Checking out this team ' .. rankedpickorder.order[rankedpickorder.currentOrder].team)
       PlayerResource:GetPlayerIDsForTeam(rankedpickorder.order[rankedpickorder.currentOrder].team):foreach(function (playerID)
         if not selectedtable[playerID] or selectedtable[playerID].selectedhero == 'empty' then
@@ -300,6 +318,9 @@ function HeroSelection:RankedManager (event)
     end
     if choice == 'random' then
       choice = self:RandomHero()
+    end
+    if choice == 'forcerandom' then
+      choice = self:ForceRandomHero(event.PlayerID)
     end
     DebugPrint('Picking step ' .. rankedpickorder.currentOrder)
     if rankedpickorder.order[rankedpickorder.currentOrder].team ~= PlayerResource:GetTeam(event.PlayerID) then
@@ -361,8 +382,9 @@ function HeroSelection:ChooseBans ()
     end
     return
   else
+    local skippedBans = 0
     while banCount < totalChoices / 2 do
-      local choiceNum = RandomInt(1, totalChoices - banCount)
+      local choiceNum = RandomInt(1, totalChoices - banCount - skippedBans)
       local playerID = playerIDs[choiceNum]
       table.remove(playerIDs, choiceNum)
       local team = PlayerResource:GetTeam(playerID)
@@ -384,6 +406,8 @@ function HeroSelection:ChooseBans ()
         banCount = banCount + 1
         DebugPrint('Banning ' .. rankedpickorder.banChoices[playerID])
         table.insert(rankedpickorder.bans, rankedpickorder.banChoices[playerID])
+      else
+        skippedBans = skippedBans + 1
       end
     end
   end
@@ -392,7 +416,7 @@ end
 function HeroSelection:RankedTimer (time, message)
   HeroSelection:CheckPause()
   if forcestop == true or time < 0 then
-    HeroSelection:RankedManager({hero = "random", isTimeout = true})
+    HeroSelection:RankedManager({hero = "forcerandom", isTimeout = true})
     return
   end
 
@@ -453,6 +477,8 @@ function HeroSelection:CMManager (event)
       DebugPrintTable(event)
       if event.hero == "random" then
         event.hero = HeroSelection:RandomHero()
+      elseif event.hero == "forcerandom" then
+        event.hero = HeroSelection:ForceRandomHero(event.PlayerID)
       elseif HeroSelection:IsHeroDisabled(event.hero) then
         forcestop = false
         return
@@ -499,12 +525,12 @@ function HeroSelection:CMTimer (time, message, isReserveTime)
 
   if cmpickorder["currentstage"] > 0 and forcestop == false then
     if cmpickorder["order"][cmpickorder["currentstage"]].side == DOTA_TEAM_GOODGUYS and cmpickorder["captainradiant"] == "empty" then
-      HeroSelection:CMManager({hero = "random"})
+      HeroSelection:CMManager({hero = "forcerandom"})
       return
     end
 
     if cmpickorder["order"][cmpickorder["currentstage"]].side == DOTA_TEAM_BADGUYS and cmpickorder["captaindire"] == "empty" then
-      HeroSelection:CMManager({hero = "random"})
+      HeroSelection:CMManager({hero = "forcerandom"})
       return
     end
   end
@@ -531,7 +557,7 @@ function HeroSelection:CMTimer (time, message, isReserveTime)
       end
     end
     if time <= 0 then
-      HeroSelection:CMManager({hero = "random"})
+      HeroSelection:CMManager({hero = "forcerandom"})
       return
     end
   end
@@ -582,17 +608,19 @@ function HeroSelection:APTimer (time, message)
         if GetMapName() == "captains_mode" then
           HeroSelection:UpdateTable(key, cmpickorder[value.team.."picks"][1])
         else
-          HeroSelection:UpdateTable(key, HeroSelection:RandomHero())
+          HeroSelection:UpdateTable(key, HeroSelection:ForceRandomHero(key))
         end
       end
       HeroSelection:SelectHero(key, selectedtable[key].selectedhero)
     end
+
+    -- I don't understand this next chunk of code
     PlayerResource:GetAllTeamPlayerIDs():each(function (playerId)
       if not lockedHeroes[playerId] then
         if GetMapName() == "captains_mode" then
           HeroSelection:UpdateTable(playerId, cmpickorder[PlayerResource:GetTeam(playerId).."picks"][1])
         else
-          HeroSelection:UpdateTable(playerId, HeroSelection:RandomHero())
+          HeroSelection:UpdateTable(playerId, HeroSelection:ForceRandomHero(playerId))
         end
       end
     end)
@@ -666,7 +694,7 @@ function HeroSelection:IsHeroDisabled (hero)
         return true
       end
     end
-  elseif self.isRanked then
+  elseif self.isBanning then
     for _,bannedHero in pairs(rankedpickorder.bans) do
       if hero == bannedHero then
         return true
@@ -696,6 +724,22 @@ function HeroSelection:IsHeroChosen (hero)
   return false
 end
 
+function HeroSelection:ForceRandomHero (playerId)
+  if not playerId then
+    return HeroSelection:RandomHero()
+  end
+  local previewTable = CustomNetTables:GetTableValue('hero_selection', 'preview_table') or {}
+  local team = tostring(PlayerResource:GetTeam(playerId))
+  local steamid = HeroSelection:GetSteamAccountID(playerId)
+  DebugPrint("Force random for " .. playerId .. " on team " .. team)
+  if previewTable[team] and previewTable[team][steamid] and not HeroSelection:IsHeroDisabled(previewTable[team][steamid]) then
+    return previewTable[team][steamid]
+  end
+
+  DebugPrint("Bad preview hero, falling back to normal random")
+  return HeroSelection:RandomHero()
+end
+
 function HeroSelection:RandomHero ()
   while true do
     local choice = HeroSelection:UnsafeRandomHero()
@@ -704,6 +748,7 @@ function HeroSelection:RandomHero ()
     end
   end
 end
+
 function HeroSelection:UnsafeRandomHero ()
   local curstate = 0
   local rndhero = RandomInt(0, totalheroes - 1)
@@ -763,7 +808,12 @@ end
 function HeroSelection:HeroSelected (event)
   DebugPrint("Received Hero Pick")
   DebugPrintTable(event)
-  if HeroSelection.isRanked then
+  if not event.hero or event.hero == "empty" or HeroSelection:IsHeroDisabled(event.hero) then
+    Debug:EnableDebugging()
+    DebugPrint('Cheater...')
+    return
+  end
+  if HeroSelection.isBanning then
     return HeroSelection:RankedManager(event)
   end
   -- if HeroSelection.isCM then
@@ -787,6 +837,9 @@ function HeroSelection:UpdateTable (playerID, hero)
   local teamID = PlayerResource:GetTeam(playerID)
   if hero == "random" then
     hero = self:RandomHero()
+  end
+  if hero == "forcerandom" then
+    hero = self:ForceRandomHero(playerID)
   end
 
   if lockedHeroes[playerID] then

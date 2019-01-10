@@ -750,18 +750,19 @@ function UpdateBottlePassArcana (heroName) {
       radio.setName = 'DefaultSet';
       radio.checked = selectedArcana === radio.setName;
 
-      // Disabled
-      // radio = $.CreatePanel('RadioButton', $('#ArcanaSelection'), 'PepsiSoheiSet');
-      // radio.BLoadLayoutSnippet('ArcanaRadio');
-      // radio.hero = heroName;
-      // radio.setName = 'PepsiSohei';
-
       for (var index in arcanas) {
         if (arcanas[index] === 'DBZSohei') {
           radio = $.CreatePanel('RadioButton', $('#ArcanaSelection'), 'DBZSoheiSet');
           radio.BLoadLayoutSnippet('ArcanaRadio');
           radio.hero = heroName;
           radio.setName = 'DBZSohei';
+          radio.checked = selectedArcana === radio.setName;
+        }
+        if (arcanas[index] === 'PepsiSohei') {
+          radio = $.CreatePanel('RadioButton', $('#ArcanaSelection'), 'PepsiSoheiSet');
+          radio.BLoadLayoutSnippet('ArcanaRadio');
+          radio.hero = heroName;
+          radio.setName = 'PepsiSohei';
           radio.checked = selectedArcana === radio.setName;
         }
       }
@@ -772,13 +773,15 @@ function UpdateBottlePassArcana (heroName) {
       radio.setName = 'DefaultSet';
       radio.checked = selectedArcana === radio.setName;
 
-      // Disabled
-
-      // radio = $.CreatePanel('RadioButton', $('#ArcanaSelection'), 'RockElectricianSet');
-      // radio.BLoadLayoutSnippet('ArcanaRadio');
-      // radio.hero = heroName;
-      // radio.setName = 'RockElectrician';
-      // radio.checked = selectedArcana === radio.setName;
+      for (var index2 in arcanas) {
+        if (arcanas[index2] === 'RockElectrician') {
+          radio = $.CreatePanel('RadioButton', $('#ArcanaSelection'), 'RockElectricianSet');
+          radio.BLoadLayoutSnippet('ArcanaRadio');
+          radio.hero = heroName;
+          radio.setName = 'RockElectrician';
+          radio.checked = selectedArcana === radio.setName;
+        }
+      }
     }
     SelectArcana();
   });
@@ -816,7 +819,7 @@ function SelectArcana () {
 function UpdateBottleList () {
   var playerID = Game.GetLocalPlayerID();
   var specialBottles = CustomNetTables.GetTableValue('bottlepass', 'special_bottles');
-  var bottles = specialBottles[playerID.toString()].Bottles;
+  var bottles = specialBottles[playerID.toString()] ? specialBottles[playerID.toString()].Bottles : {};
 
   if ($('#BottleSelection').GetChildCount() === Object.keys(bottles).length + 1) {
     // ignore repaint if radio is already filled

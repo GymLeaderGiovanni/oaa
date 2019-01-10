@@ -55,6 +55,8 @@ require('libraries/basehero')
 require('libraries/gamerules')
 -- Pseudo-random distribution C constant calculator
 require('libraries/cfinder')
+-- Library for handling buildings (OAA custom or DOTA original)
+require('libraries/buildings')
 
 -- These internal libraries set up barebones's events and processes.  Feel free to inspect them/change them if you need to.
 require('internal/gamemode')
@@ -143,6 +145,7 @@ end
 
 function GameMode:OnPreGame()
   -- initialize modules
+  InitModule(PointsManager)
   InitModule(Music)
   InitModule(Gold)
   InitModule(BlinkBlock)
@@ -158,8 +161,8 @@ function GameMode:OnPreGame()
   InitModule(Doors)
   InitModule(HeroKillGold)
   InitModule(EntityStatProvider)
-  InitModule(ProtectionAura)
   InitModule(RespawnManager)
+  InitModule(BountyRunePick)
 
   CheckCheatMode()
 end
@@ -174,7 +177,6 @@ function GameMode:OnGameInProgress()
 
   -- initialize modules
   InitModule(HudTimer)
-  InitModule(PointsManager)
   InitModule(SurrenderManager)
   InitModule(CreepPower)
   InitModule(CreepCamps)
@@ -189,6 +191,8 @@ function GameMode:OnGameInProgress()
   InitModule(PlayerConnection)
   InitModule(StatusResistance)
   InitModule(SaveLoadState)
+  InitModule(Runes)
+  InitModule(ProtectionAura)
 
   -- xpm stuff
   LinkLuaModifier( "modifier_xpm_thinker", "modifiers/modifier_xpm_thinker.lua", LUA_MODIFIER_MOTION_NONE )

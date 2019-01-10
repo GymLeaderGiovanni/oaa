@@ -50,13 +50,13 @@ CapturePoints.onStart = Start.listen
 CapturePoints.onEnd = CaptureFinished.listen
 
 function CapturePoints:Init ()
-  Debug.EnableDebugging()
+  -- Debug.EnableDebugging()
   DebugPrint('Init capture point')
 
   self.currentCapture = nil
 
-  CapturePoints.nextCaptureTime = HudTimer:GetGameTime() + INITIAL_CAPTURE_POINT_DELAY
-  Timers:CreateTimer(INITIAL_CAPTURE_POINT_DELAY - 60, function ()
+  CapturePoints.nextCaptureTime = INITIAL_CAPTURE_POINT_DELAY
+  HudTimer:At(INITIAL_CAPTURE_POINT_DELAY - 60, function ()
     self:ScheduleCapture()
   end)
 
@@ -201,15 +201,18 @@ function CapturePoints:Reward(teamId)
     return
   end
 
-  PointsManager:AddPoints(teamId, 1)
+  PointsManager:AddPoints(teamId, NumCaptures)
 
   if NumCaptures == 1 then
-    self:GiveItemToWholeTeam("item_upgrade_core_2", teamId)
+    self:GiveItemToWholeTeam("item_upgrade_core", teamId)
   elseif NumCaptures == 2 then
+    self:GiveItemToWholeTeam("item_upgrade_core_2", teamId)
+  elseif NumCaptures == 3 then
     self:GiveItemToWholeTeam("item_upgrade_core_3", teamId)
-  elseif NumCaptures >= 3 then
+  elseif NumCaptures >= 4 then
     self:GiveItemToWholeTeam("item_upgrade_core_4", teamId)
   end
+
   LiveZones = LiveZones - 1
   if LiveZones <= 0 then
     CapturePoints:EndCapture()
